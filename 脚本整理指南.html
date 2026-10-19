@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GF-2 土地覆盖分类项目 · 脚本整理指南</title>
+<style>
+  :root{
+    --ink:#1a2332; --muted:#5b6b7f; --line:#dde4ec; --bg:#f6f8fb;
+    --blue:#2563eb; --blue-bg:#eff4ff; --green:#15803d; --green-bg:#effaf1;
+    --orange:#b45309; --orange-bg:#fdf3e3; --purple:#7c3aed; --purple-bg:#f3efff;
+    --gray-bg:#eef1f5;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Microsoft YaHei","PingFang SC",sans-serif; color:var(--ink); background:var(--bg); line-height:1.7; padding:32px 16px;}
+  .page{max-width:1080px; margin:0 auto;}
+  h1{font-size:26px; margin-bottom:6px;}
+  .sub{color:var(--muted); margin-bottom:28px; font-size:14px;}
+  h2{font-size:19px; margin:36px 0 14px; padding-left:10px; border-left:4px solid var(--blue);}
+  h3{font-size:15px; margin:18px 0 8px;}
+  p{margin-bottom:10px; font-size:14px;}
+  .card{background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px 22px; margin-bottom:16px;}
+  table{width:100%; border-collapse:collapse; font-size:13.5px; background:#fff;}
+  th{background:var(--gray-bg); text-align:left; padding:9px 10px; border:1px solid var(--line); white-space:nowrap;}
+  td{padding:9px 10px; border:1px solid var(--line); vertical-align:top;}
+  code{background:var(--gray-bg); padding:1px 6px; border-radius:4px; font-family:Consolas,monospace; font-size:12.5px; color:#0f3d91;}
+  .file{font-family:Consolas,monospace; font-weight:600; font-size:12.5px; color:#111; background:#fff; border:1px solid var(--line); padding:1px 6px; border-radius:4px; white-space:nowrap;}
+  .flow{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 4px;}
+  .step{background:#fff; border:1.5px solid var(--blue); border-radius:8px; padding:8px 12px; font-size:12.5px; text-align:center; min-width:120px;}
+  .step b{display:block; font-size:13px; color:var(--blue);}
+  .arr{color:var(--blue); font-size:18px; font-weight:700;}
+  .lane{border-radius:10px; padding:14px 16px; margin-bottom:14px; border:1px solid var(--line);}
+  .lane h3{margin-top:0;}
+  .lane.blue{background:var(--blue-bg);} .lane.green{background:var(--green-bg);}
+  .lane.orange{background:var(--orange-bg);} .lane.purple{background:var(--purple-bg);}
+  .lane.blue .step{border-color:var(--blue);} .lane.blue .step b,.lane.blue .arr{color:var(--blue);}
+  .lane.green .step{border-color:var(--green);} .lane.green .step b,.lane.green .arr{color:var(--green);}
+  .lane.orange .step{border-color:var(--orange);} .lane.orange .step b,.lane.orange .arr{color:var(--orange);}
+  .lane.purple .step{border-color:var(--purple);} .lane.purple .step b,.lane.purple .arr{color:var(--purple);}
+  .tag{display:inline-block; font-size:11.5px; border-radius:20px; padding:1px 10px; margin-right:6px; font-weight:600;}
+  .tag.main{background:var(--blue); color:#fff;}
+  .tag.side{background:#fff; border:1px solid var(--muted); color:var(--muted);}
+  .note{background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:12px 16px; font-size:13.5px; margin:12px 0;}
+  .warn{background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px 16px; font-size:13.5px; margin:12px 0;}
+  ul{padding-left:22px; font-size:14px; margin-bottom:10px;}
+  li{margin-bottom:5px;}
+  .muted{color:var(--muted); font-size:12.5px;}
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>GF-2 土地覆盖分类项目 · 脚本整理指南</h1>
+<div class="sub">整理自 D:\gf2-landcover 文件夹 · 共 25 个 Python 脚本 · 归纳为 4 条技术路线 + 2 组工具</div>
+
+<h2>一、先说结论</h2>
+<div class="card">
+<p>这个文件夹是同门做的<b>同一套任务的四种方法对比实验</b>：用高分二号 0.8 米四波段影像，把土地覆盖分成 6 类（1 耕地 / 2 林地 / 3 草地 / 4 水域 / 5 建设用地 / 6 未利用地）。四种方法分别是：<b>Prithvi 遥感大模型微调</b>（主线，README 里写了完整流程）、<b>随机森林 / SVM 像素级分类</b>、<b>轻量 CNN</b>、<b>面向对象 OBIA 分类</b>。另外混进来 11 个跟分类完全无关的<b>简历编辑小工具</b>，不用管它们。</p>
+</div>
+
+<h2>二、四条技术路线总览</h2>
+
+<div class="lane blue">
+  <span class="tag main">主线 · 深度学习</span> <b style="font-size:15px">路线 A：Prithvi 遥感大模型语义分割</b>
+  <p class="muted">用 NASA/IBM 的 Prithvi-EO-2.0（3 亿参数预训练模型）微调，TerraTorch 框架，需 conda 的 prithvi 环境。README.md 记录了完整步骤。</p>
+  <div class="flow">
+    <div class="step"><b>01_check_bands.py</b>检查影像波段</div><span class="arr">→</span>
+    <div class="step"><b>QGIS 标注</b>画多边形→栅格化</div><span class="arr">→</span>
+    <div class="step"><b>02_tile.py</b>切 224×224 训练块</div><span class="arr">→</span>
+    <div class="step"><b>03_train.py</b>微调大模型</div><span class="arr">→</span>
+    <div class="step"><b>04_predict_scene.py</b>整幅出分类图</div>
+  </div>
+</div>
+
+<div class="lane green">
+  <span class="tag main">路线 B · 传统机器学习</span> <b style="font-size:15px">随机森林 / SVM 像素级分类</b>
+  <p class="muted">直接用 4 个波段的像元值当特征，sklearn 实现，就是你 D:\gf2 那套数据的来源。</p>
+  <div class="flow">
+    <div class="step"><b>rf_train.py</b>RF 训练+整图预测</div><span class="arr">→</span>
+    <div class="step"><b>SVM 对比</b>svm_train.py</div>
+  </div>
+  <div class="flow">
+    <div class="step"><b>align_rf.py</b>分类图对齐到标签网格</div><span class="arr">→</span>
+    <div class="step"><b>rf_eval.py</b>抽 200 万像素算精度</div>
+  </div>
+</div>
+
+<div class="lane orange">
+  <span class="tag main">路线 C · 深度学习对比</span> <b style="font-size:15px">轻量 CNN 对比实验</b>
+  <p class="muted">自己搭的一个小型编码-解码网络，和大模型对比用。直接复用路线 A 切好的训练块（data\tiles）。</p>
+  <div class="flow">
+    <div class="step"><b>cnn_train.py</b>训练+评价+整图推理<br><span class="muted">产出 cnn_best.pth、result_cnn.tif</span></div>
+  </div>
+</div>
+
+<div class="lane purple">
+  <span class="tag main">路线 D · 面向对象</span> <b style="font-size:15px">OBIA：SLIC 分割 + 对象级随机森林</b>
+  <p class="muted">先把影像切成"同质对象"再分类，用的标签就是你标注的 labels9.shp（字段 class，1~6）。</p>
+  <div class="flow">
+    <div class="step"><b>obia_classification.py</b>整幅一次性处理<br><span class="muted">内存要求高</span></div>
+    <div class="step"><b>obia_tiled_classification.py</b>分块处理版<br><span class="muted">内存友好，推荐</span></div>
+  </div>
+</div>
+
+<h2>三、逐个脚本说明</h2>
+
+<h3>路线 A：Prithvi 大模型流程（README 主线）</h3>
+<table>
+<tr><th style="width:180px">脚本</th><th style="width:34%">作用</th><th>输入 → 输出</th></tr>
+<tr><td><span class="file">01_check_bands.py</span></td><td>第 1 步。检查影像是不是 4 波段、分辨率多少，判断波段顺序是否正确</td><td>影像 tif → 控制台报告（3 波段会提示去找原始数据重做融合）</td></tr>
+<tr><td><span class="file">02_tile.py</span></td><td>第 3 步。把影像和标签切成 224×224 小块，按网格划分训练/验证（防泄漏），统计各波段均值方差</td><td>影像+标签 → data\tiles\train、val 下几千个小块 + data\stats.json</td></tr>
+<tr><td><span class="file">03_train.py</span></td><td>第 4 步。微调 Prithvi-EO-2.0-300M（UperNet 解码头），带早停、自动存最佳模型，训练完自动跑一遍精度评估</td><td>切片数据 → output\checkpoints\best.ckpt + 控制台精度报告</td></tr>
+<tr><td><span class="file">04_predict_scene.py</span></td><td>第 5 步。对整幅影像滑窗推理，输出类别编号图和配色图</td><td>影像+模型 → result.tif、result_color.tif（拖进 QGIS 查看）</td></tr>
+<tr><td><span class="file">check_labels.py</span></td><td>数据体检。检查标签切片的数值范围/nodata/NaN，诊断训练报 bincount 错误的根因</td><td>data\tiles 或指定标签文件 → 控制台诊断结论</td></tr>
+<tr><td><span class="file">prithvi_eval.py</span></td><td>单独对验证集重新评价已训练的 Prithvi 模型（不用重新训练）</td><td>best.ckpt + 验证切片 → OA/Kappa/分类报告</td></tr>
+<tr><td><span class="file">extract_metrics.py</span></td><td>解析 TensorBoard 训练日志，对比每一次训练运行的损失和指标曲线，确认哪个检查点最好</td><td>output\gf2_landcover\version_* → 控制台各轮指标汇总</td></tr>
+</table>
+
+<h3>路线 B：随机森林 / SVM（对应你 D:\gf2 的数据）</h3>
+<table>
+<tr><th style="width:180px">脚本</th><th style="width:34%">作用</th><th>输入 → 输出</th></tr>
+<tr><td><span class="file">rf_train.py</span></td><td><b>就是生成你那张 RF_result_corrected.tif 的脚本</b>。分块随机采样 50 万训练像素训练 RF，再分块预测整幅图</td><td>train_area8.tif + train_label13.tif → RF_result_corrected.tif + 精度报告</td></tr>
+<tr><td><span class="file">svm_train.py</span></td><td>同一套流程换 SVM（RBF 核，含特征标准化、类别权重平衡），样本量小很多因为 SVM 慢</td><td>同上 → SVM_result_corrected.tif + 精度报告</td></tr>
+<tr><td><span class="file">align_rf.py</span></td><td>用最近邻重采样把分类图对齐到标签栅格的网格/投影上（评价前必须对齐）</td><td>任意分类图 → RF_aligned.tif</td></tr>
+<tr><td><span class="file">rf_eval.py</span></td><td>对齐之后，随机抽 200 万像素算 OA/Kappa/混淆矩阵，属于独立复评</td><td>train_label13.tif + RF_aligned.tif → 控制台精度报告</td></tr>
+<tr><td><span class="file">merge_tiles.py</span></td><td>把其他试验区（area2、area7）切好的块复制合并进主训练目录，用于扩样本</td><td>tiles_area*_clean → data\tiles\train、val</td></tr>
+</table>
+
+<h3>路线 C：轻量 CNN 对比</h3>
+<table>
+<tr><th style="width:180px">脚本</th><th style="width:34%">作用</th><th>输入 → 输出</th></tr>
+<tr><td><span class="file">cnn_train.py</span></td><td>自建的 6 层小编码-解码网络，一个脚本完成训练、验证评价、整图推理三件事；检测到已有模型权重就跳过训练直接推理</td><td>data\tiles 切片 → cnn_best.pth、result_cnn.tif + 精度报告</td></tr>
+</table>
+
+<h3>路线 D：面向对象分类 OBIA</h3>
+<table>
+<tr><th style="width:260px">脚本</th><th style="width:32%">作用</th><th>输入 → 输出</th></tr>
+<tr><td><span class="file">gf2_landcover_obia_classification.py</span></td><td>SLIC 超像素分割 → 提取对象的光谱+纹理特征 → 对象级 RF 训练 → 整幅分类。整幅载入内存，对电脑配置要求高</td><td>train_area8.tif + labels9.shp（你标的）→ obia_output\</td></tr>
+<tr><td><span class="file">gf2_landcover_obia_tiled_classification.py</span></td><td>上面的分块版：每次只处理 1024×1024 带缓冲的小窗口，内存占用大幅降低，全幅约 20 亿像元但可以慢慢跑完</td><td>同上 → obia_tiled_output\</td></tr>
+</table>
+
+<h2>四、和分类无关的文件（简历工具）</h2>
+<div class="warn">
+<b>这 11 个脚本全是编辑简历 docx 用的小工具</b>（解析/修改 resume_unpacked\word\document.xml 里的文字和图形位置），跟土地覆盖分类没有任何关系，应该是当时放混了：<span class="file">ac_blocks.py</span> <span class="file">para_ranges.py</span> <span class="file">para_top.py</span> <span class="file">peek.py</span> <span class="file">pos_dump.py</span> <span class="file">context_dump.py</span> <span class="file">self_eval_dump.py</span> <span class="file">analyze_layout.py</span> <span class="file">analyze_skills.py</span> <span class="file">edit_skills.py</span> <span class="file">edit_resume.py</span>
+<p style="margin-top:8px">相关文件还有：resume_unpacked\ 文件夹、两份简历 docx/pdf、photo_recovered.jpg、resume_preview_1.png。建议移到别的文件夹，免得干扰。</p>
+</div>
+
+<h2>五、模型文件和数据文件夹</h2>
+<table>
+<tr><th style="width:280px">文件/文件夹</th><th>说明</th></tr>
+<tr><td><span class="file">cnn_best.pth</span></td><td>路线 C 轻量 CNN 训练好的权重（约 0.7 MB）</td></tr>
+<tr><td><span class="file">cnn_best_8cls_backup.pth</span></td><td>早期 8 分类方案（多一个"道路"类）的备份权重，现用 6 类方案后已弃用</td></tr>
+<tr><td><span class="file">data\</span></td><td>路线 A/C 共用的训练切片（data\tiles\train、val）和归一化参数 stats.json</td></tr>
+<tr><td><span class="file">output\</span></td><td>Prithvi 大模型的训练产物（checkpoints、TensorBoard 日志）</td></tr>
+<tr><td><span class="file">obia_output\ / obia_tiled_output\</span></td><td>两条 OBIA 路线的输出目录</td></tr>
+<tr><td><span class="file">README.md</span></td><td>主线流程的完整操作手册，从装环境到出图一步步都有，<b>建议先读它</b></td></tr>
+</table>
+
+<h2>六、快速上手（按你想做的事查）</h2>
+<div class="card">
+<ul>
+<li><b>想跑通主线（大模型分类）</b>：读 README.md → <code>conda activate prithvi</code> → 按第 0~5 步依次执行 01→02→03→04</li>
+<li><b>想重训随机森林</b>：改 rf_train.py 开头的三个路径，直接 <code>python rf_train.py</code></li>
+<li><b>想评价新的分类结果</b>：如果和标签网格不一致先跑 align_rf.py，再改 rf_eval.py 里的 PRED_PATH 运行</li>
+<li><b>想跑面向对象分类</b>：用分块版 <code>python gf2_landcover_obia_tiled_classification.py</code>（标签就是你标的 labels9.shp）</li>
+<li><b>想看某次训练效果如何</b>：<code>python extract_metrics.py</code>（注意：脚本里的路径还写的是老的 C:\gf2-landcover，要先改成 D:\gf2-landcover）</li>
+</ul>
+<p class="note"><b>小提醒：</b>不少脚本里写死了 <code>D:\gf2\...</code> 或 <code>C:\gf2-landcover\...</code> 这样的绝对路径，换电脑或挪文件夹后要打开脚本改开头"配置区"的路径才能跑。</p>
+</div>
+
+<h2>七、和学习指南的关系</h2>
+<div class="card">
+<p>README 提到的"学习指南第 5/6 章"是同门自己写的 Prithvi 环境安装和官方示例教程（本文件夹里没有，应该在别处）。类别方案（1 耕地、2 林地、3 草地、4 水域、5 建设用地、6 未利用地）与你 D:\gf2 的 labels9 标签一致，四条路线的精度可以直接对比。数据流水线的公共部分是：影像 + 标签 →（02_tile 切片）→ 各种模型 → 分类图 → 精度评价。</p>
+</div>
+
+</div>
+</body>
+</html>

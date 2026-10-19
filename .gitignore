@@ -1,0 +1,9 @@
+# 大体积数据与训练产物（体积过大，不适合放入 GitHub，保留在本地）
+data/
+output/
+obia_output/
+obia_tiled_output/
+
+# Python 运行缓存
+__pycache__/
+*.pyc
